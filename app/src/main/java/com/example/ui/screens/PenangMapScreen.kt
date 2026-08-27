@@ -81,33 +81,23 @@ fun PenangMapScreen(
             .fillMaxSize()
             .testTag("penang_map_screen")
     ) {
-        // 1. Google Map Panel View (Primary Slippy Map Engine)
-        if (state.isGoogleMapMode) {
-            GoogleMapPanelView(
-                stations = state.allStations,
-                stationReadings = stationReadings,
-                selectedStation = state.selectedMapStation,
-                onSelectStation = onSelectStation,
-                isHeatmapEnabled = state.isHeatmapEnabled,
-                districtFilter = state.mapDistrictFilter,
-                mapType = currentGoogleMapType,
-                onMapTypeChange = onSetMapType,
-                userLatitude = state.reading?.station?.latitude ?: 5.4164,
-                userLongitude = state.reading?.station?.longitude ?: 100.3327,
-                isDarkTheme = state.isDarkTheme,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            PenangInteractiveMapView(
-                stations = state.allStations,
-                stationReadings = stationReadings,
-                selectedStation = state.selectedMapStation,
-                onSelectStation = onSelectStation,
-                isHeatmapEnabled = state.isHeatmapEnabled,
-                districtFilter = state.mapDistrictFilter,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        // 1. Google Map Panel View (Primary Slippy Map Engine with Station Overlays)
+        GoogleMapPanelView(
+            stations = state.allStations,
+            stationReadings = stationReadings,
+            selectedStation = state.selectedMapStation,
+            onSelectStation = onSelectStation,
+            onSetActiveStation = onSetActiveStation,
+            onViewStationHistory = onViewStationHistory,
+            isHeatmapEnabled = state.isHeatmapEnabled,
+            districtFilter = state.mapDistrictFilter,
+            mapType = GoogleMapType.ROADMAP,
+            onToggleHeatmap = onToggleHeatmap,
+            userLatitude = state.reading?.station?.latitude ?: 5.4164,
+            userLongitude = state.reading?.station?.longitude ?: 100.3327,
+            isDarkTheme = state.isDarkTheme,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // 2. Top Filter and Mode Bar
         Column(
@@ -177,19 +167,6 @@ fun PenangMapScreen(
                                 imageVector = if (state.isHeatmapEnabled) Icons.Default.Layers else Icons.Default.LayersClear,
                                 contentDescription = "Toggle Heatmap",
                                 tint = if (state.isHeatmapEnabled) GeoOrange else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-
-                        // Map Renderer Mode Toggle (Google Map vs Vector)
-                        IconButton(
-                            onClick = onToggleMapRenderer,
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (state.isGoogleMapMode) Icons.Default.Map else Icons.Default.Palette,
-                                contentDescription = "Switch Map View",
-                                tint = if (state.isGoogleMapMode) GeoBlue else GeoOrange,
                                 modifier = Modifier.size(19.dp)
                             )
                         }

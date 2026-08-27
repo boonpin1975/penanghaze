@@ -33,6 +33,7 @@ fun DashboardScreen(
     state: HazeUiState,
     onSelectZone: (PenangStation?) -> Unit,
     onNavigateToHealth: () -> Unit,
+    onNavigateToMap: () -> Unit = {},
     onDismissAlertBanner: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
@@ -89,7 +90,91 @@ fun DashboardScreen(
             // 3. Station Type / Live Connection Dark Pill
             LocationSourceBadge(reading = reading)
 
-            // 4. Top Automated Health Recommendation Highlight
+            // 4. Interactive Google Map Quick Access Card
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, GeoOrange.copy(alpha = 0.35f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToMap() }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = GeoOrangeBg,
+                            modifier = Modifier.size(46.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Map,
+                                    contentDescription = "Map",
+                                    tint = GeoOrange,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Interactive Google Map",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = GeoGreen.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "LIVE",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = GeoGreen,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "11 Penang stations, Street Map & atmospheric haze plumes",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    FilledTonalButton(
+                        onClick = onNavigateToMap,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = GeoOrangeBg,
+                            contentColor = GeoOrange
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = "View Map", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+
+            // 5. Top Automated Health Recommendation Highlight
             val topRec = state.recommendations.firstOrNull()
             if (topRec != null) {
                 TopHealthAdvisoryCard(
@@ -98,7 +183,7 @@ fun DashboardScreen(
                 )
             }
 
-            // 5. Live Wind & Atmospheric Dispersion
+            // 6. Live Wind & Atmospheric Dispersion
             WeatherAndWindCard(
                 temp = reading.temperature,
                 humidity = reading.humidity,
@@ -106,7 +191,7 @@ fun DashboardScreen(
                 windDir = reading.windDirection
             )
 
-            // 6. Full Pollutant Breakdown (PM2.5, PM10, O3, NO2, SO2, CO)
+            // 7. Full Pollutant Breakdown (PM2.5, PM10, O3, NO2, SO2, CO)
             PollutantGrid(reading = reading)
 
             Spacer(modifier = Modifier.height(16.dp))

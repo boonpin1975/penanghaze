@@ -269,6 +269,7 @@ fun MainScreen(
                     state = state,
                     onSelectZone = { viewModel.selectZone(it) },
                     onNavigateToHealth = { viewModel.selectNavTab(3) },
+                    onNavigateToMap = { viewModel.selectNavTab(1) },
                     onDismissAlertBanner = { viewModel.dismissBanner() },
                     onRefresh = { viewModel.loadData() }
                 )
