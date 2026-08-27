@@ -6,7 +6,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,7 +28,6 @@ import com.example.data.location.PenangStationsData
 import com.example.data.model.HazeLevel
 import com.example.data.model.PenangStation
 import com.example.ui.HazeUiState
-import com.example.ui.components.CardContainer
 import com.example.ui.components.GoogleMapPanelView
 import com.example.ui.components.GoogleMapType
 import com.example.ui.components.PenangInteractiveMapView
@@ -51,7 +53,6 @@ fun PenangMapScreen(
         state.stationComparisons.forEach { (station, api) ->
             map[station.id] = api
         }
-        // If current live reading has specific station, use its real reading
         state.reading?.let { r ->
             map[r.station.id] = r.apiValue
         }
@@ -67,12 +68,20 @@ fun PenangMapScreen(
         }
     }
 
+    val filteredStations = remember(state.allStations, state.mapDistrictFilter) {
+        when (state.mapDistrictFilter) {
+            "ISLAND" -> state.allStations.filter { it.district.contains("Island", ignoreCase = true) }
+            "MAINLAND" -> state.allStations.filter { it.district.contains("Mainland", ignoreCase = true) }
+            else -> state.allStations
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .testTag("penang_map_screen")
     ) {
-        // 1. Google Map Panel View (or Stylized Canvas)
+        // 1. Google Map Panel View (Primary Slippy Map Engine)
         if (state.isGoogleMapMode) {
             GoogleMapPanelView(
                 stations = state.allStations,
@@ -85,6 +94,7 @@ fun PenangMapScreen(
                 onMapTypeChange = onSetMapType,
                 userLatitude = state.reading?.station?.latitude ?: 5.4164,
                 userLongitude = state.reading?.station?.longitude ?: 100.3327,
+                isDarkTheme = state.isDarkTheme,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -110,7 +120,7 @@ fun PenangMapScreen(
                 shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                 shadowElevation = 5.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -188,7 +198,78 @@ fun PenangMapScreen(
             }
         }
 
-        // 3. Station Detail Card / Modal when station is selected
+        // 3. Bottom Carousel of All 11 Stations (When no card is actively expanded)
+        if (state.selectedMapStation == null) {
+            LazyRow(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp, start = 12.dp, end = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredStations, key = { it.id }) { station ->
+                    val api = stationReadings[station.id] ?: 52
+                    val level = HazeLevel.fromApi(api)
+                    val levelColor = when (level) {
+                        HazeLevel.GOOD -> GeoGreen
+                        HazeLevel.MODERATE -> GeoOrange
+                        HazeLevel.UNHEALTHY -> GeoOrangeDark
+                        HazeLevel.VERY_UNHEALTHY -> HazeRedVeryUnhealthy
+                        HazeLevel.HAZARDOUS -> HazeHazardous
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        shadowElevation = 3.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .clickable { onSelectStation(station) }
+                            .width(150.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = levelColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "$api",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = levelColor
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Column {
+                                Text(
+                                    text = station.name.replace("Penang", "").replace("Station", "").trim(),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = station.district.replace("District", "").trim(),
+                                    fontSize = 9.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Station Detail Card / Modal when station is selected
         AnimatedVisibility(
             visible = state.selectedMapStation != null,
             enter = slideInVertically(initialOffsetY = { it }),
@@ -224,7 +305,6 @@ fun PenangMapScreen(
                             }
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            // Fallback to web browser Google Maps
                             val webUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}")
                             context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
                         }
@@ -248,11 +328,19 @@ fun StationDetailMapCard(
     onOpenGoogleMaps: () -> Unit = {},
     onClose: () -> Unit
 ) {
+    val levelColor = when (hazeLevel) {
+        HazeLevel.GOOD -> GeoGreen
+        HazeLevel.MODERATE -> GeoOrange
+        HazeLevel.UNHEALTHY -> GeoOrangeDark
+        HazeLevel.VERY_UNHEALTHY -> HazeRedVeryUnhealthy
+        HazeLevel.HAZARDOUS -> HazeHazardous
+    }
+
     Surface(
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 10.dp,
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, hazeLevel.color.copy(alpha = 0.5f)),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, levelColor.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("station_detail_card")
@@ -268,13 +356,13 @@ fun StationDetailMapCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = hazeLevel.containerColor
+                            color = levelColor.copy(alpha = 0.15f)
                         ) {
                             Text(
                                 text = if (station.isOfficialCAQM) "OFFICIAL DOE CAQM" else "SUPPLEMENTAL",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black,
-                                color = hazeLevel.color,
+                                color = levelColor,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -334,8 +422,8 @@ fun StationDetailMapCard(
                 // Large AQI Pill
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = hazeLevel.containerColor,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, hazeLevel.color.copy(alpha = 0.5f)),
+                    color = levelColor.copy(alpha = 0.12f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, levelColor.copy(alpha = 0.5f)),
                     modifier = Modifier.weight(1.1f)
                 ) {
                     Column(
@@ -346,56 +434,53 @@ fun StationDetailMapCard(
                             text = "$apiValue",
                             fontSize = 30.sp,
                             fontWeight = FontWeight.Black,
-                            color = hazeLevel.color
+                            color = levelColor
                         )
                         Text(
                             text = hazeLevel.title.uppercase(),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.8.sp,
-                            color = hazeLevel.color
+                            color = levelColor
                         )
                         Text(
                             text = hazeLevel.titleMalay,
                             fontSize = 9.sp,
-                            color = hazeLevel.color.copy(alpha = 0.8f)
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                // Pollutants snapshot
+                // Pollutant mini breakdown preview
                 Column(
-                    modifier = Modifier.weight(1.9f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.weight(1.4f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val pm25Val = (apiValue * 0.72).toInt()
-                    val pm10Val = (apiValue * 1.15).toInt()
-
-                    PollutantMiniBar(label = "PM2.5", value = "$pm25Val µg/m³", fraction = (pm25Val / 150f).coerceIn(0.1f, 1f), color = hazeLevel.color)
-                    PollutantMiniBar(label = "PM10", value = "$pm10Val µg/m³", fraction = (pm10Val / 200f).coerceIn(0.1f, 1f), color = hazeLevel.color)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "GPS: ${String.format("%.4f", station.latitude)}, ${String.format("%.4f", station.longitude)}",
-                            fontSize = 9.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "${distanceKm}km away",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GeoOrange
-                        )
-                    }
+                    PollutantMiniBar(
+                        label = "PM2.5",
+                        value = "${(apiValue * 0.42).toInt()} µg/m³",
+                        fraction = (apiValue / 200f).coerceIn(0.1f, 1f),
+                        color = levelColor
+                    )
+                    PollutantMiniBar(
+                        label = "PM10",
+                        value = "${(apiValue * 0.72).toInt()} µg/m³",
+                        fraction = (apiValue / 250f).coerceIn(0.1f, 1f),
+                        color = levelColor
+                    )
+                    PollutantMiniBar(
+                        label = "Distance",
+                        value = "${String.format("%.1f", distanceKm)} km from you",
+                        fraction = 0.5f,
+                        color = GeoBlue
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Buttons Row: Directions, History, Set Active
+            // Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)

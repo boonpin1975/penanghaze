@@ -191,8 +191,8 @@ fun MainScreen(
                 NavigationBarItem(
                     selected = state.selectedNavTab == 1,
                     onClick = { viewModel.selectNavTab(1) },
-                    icon = { Icon(Icons.Default.Sensors, contentDescription = "Stations") },
-                    label = { Text("STATIONS", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Map, contentDescription = "Map") },
+                    label = { Text("MAP", fontSize = 9.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = GeoOrange,
                         selectedTextColor = GeoOrange,
@@ -272,12 +272,9 @@ fun MainScreen(
                     onDismissAlertBanner = { viewModel.dismissBanner() },
                     onRefresh = { viewModel.loadData() }
                 )
-                1 -> StationsScreen(
+                1 -> PenangMapScreen(
                     state = state,
-                    onSelectStation = { station ->
-                        viewModel.selectZone(station)
-                        viewModel.selectNavTab(0)
-                    },
+                    onSelectStation = { viewModel.selectMapStation(it) },
                     onSetActiveStation = { station ->
                         viewModel.selectZone(station)
                         viewModel.selectNavTab(0)
@@ -285,7 +282,11 @@ fun MainScreen(
                     onViewStationHistory = { station ->
                         viewModel.selectHistoryStation(station)
                         viewModel.selectNavTab(2)
-                    }
+                    },
+                    onToggleHeatmap = { viewModel.toggleHeatmap() },
+                    onSetDistrictFilter = { viewModel.setMapDistrictFilter(it) },
+                    onToggleMapRenderer = { viewModel.toggleMapRendererMode() },
+                    onSetMapType = { viewModel.setGoogleMapTypeCode(it.code) }
                 )
                 2 -> HistoryScreen(
                     state = state,

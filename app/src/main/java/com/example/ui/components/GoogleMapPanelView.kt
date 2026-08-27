@@ -51,6 +51,7 @@ fun GoogleMapPanelView(
     onMapTypeChange: (GoogleMapType) -> Unit,
     userLatitude: Double? = 5.4164,
     userLongitude: Double? = 100.3327,
+    isDarkTheme: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -65,23 +66,24 @@ fun GoogleMapPanelView(
         }
     }
 
-    // JSON serialization for stations
+    // JSON serialization for stations with color coding and names
     val stationsJson = remember(filteredStations, stationReadings, selectedStation) {
         val array = JSONArray()
         filteredStations.forEach { station ->
             val api = stationReadings[station.id] ?: 52
             val level = HazeLevel.fromApi(api)
             val colorHex = when (level) {
-                HazeLevel.GOOD -> "#22C55E"
-                HazeLevel.MODERATE -> "#EAB308"
-                HazeLevel.UNHEALTHY -> "#F97316"
-                HazeLevel.VERY_UNHEALTHY -> "#EF4444"
+                HazeLevel.GOOD -> "#16A34A"
+                HazeLevel.MODERATE -> "#D97706"
+                HazeLevel.UNHEALTHY -> "#EA580C"
+                HazeLevel.VERY_UNHEALTHY -> "#DC2626"
                 HazeLevel.HAZARDOUS -> "#7E22CE"
             }
 
             val obj = JSONObject().apply {
                 put("id", station.id)
                 put("name", station.name)
+                put("shortName", station.name.replace("Penang", "").replace("Station", "").trim())
                 put("district", station.district)
                 put("lat", station.latitude)
                 put("lon", station.longitude)
@@ -97,9 +99,9 @@ fun GoogleMapPanelView(
     }
 
     // Sync station pins and heatmap to WebView
-    LaunchedEffect(stationsJson, isHeatmapEnabled, mapType, isMapLoaded) {
+    LaunchedEffect(stationsJson, isHeatmapEnabled, mapType, isMapLoaded, isDarkTheme) {
         if (isMapLoaded) {
-            val script = "if(window.updateMapState){ window.updateMapState($stationsJson, $isHeatmapEnabled, '${mapType.code}'); }"
+            val script = "if(window.updateMapState){ window.updateMapState($stationsJson, $isHeatmapEnabled, '${mapType.code}', $isDarkTheme); }"
             webViewRef?.evaluateJavascript(script, null)
         }
     }
@@ -123,7 +125,8 @@ fun GoogleMapPanelView(
             factory = { ctx ->
                 WebView(ctx).apply {
                     webViewRef = this
-                    setBackgroundColor(0xFF0F172A.toInt())
+                    val bgColor = if (isDarkTheme) 0xFF0F172A.toInt() else 0xFFF1F5F9.toInt()
+                    setBackgroundColor(bgColor)
 
                     settings.apply {
                         javaScriptEnabled = true
@@ -164,7 +167,7 @@ fun GoogleMapPanelView(
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             isMapLoaded = true
-                            val initScript = "if(window.initPenangGoogleMap){ window.initPenangGoogleMap($stationsJson, $isHeatmapEnabled, '${mapType.code}', $userLatitude, $userLongitude); }"
+                            val initScript = "if(window.initPenangGoogleMap){ window.initPenangGoogleMap($stationsJson, $isHeatmapEnabled, '${mapType.code}', $userLatitude, $userLongitude, $isDarkTheme); }"
                             view?.evaluateJavascript(initScript, null)
                         }
                     }
@@ -185,7 +188,7 @@ fun GoogleMapPanelView(
                         "AndroidBridge"
                     )
 
-                    val htmlContent = generateSelfContainedGoogleMapHtml()
+                    val htmlContent = generateSelfContainedGoogleMapHtml(isDarkTheme)
                     loadDataWithBaseURL(
                         null,
                         htmlContent,
@@ -203,9 +206,9 @@ fun GoogleMapPanelView(
         // Top-Left Floating Google Maps Layer Selector
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             shadowElevation = 4.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 12.dp, top = 64.dp)
@@ -244,8 +247,7 @@ fun GoogleMapPanelView(
                     val isSelected = mapType == type
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (isSelected) GeoOrange else Color.Transparent,
-                        modifier = Modifier
+                        color = if (isSelected) GeoOrange else Color.Transparent
                     ) {
                         TextButton(
                             onClick = { onMapTypeChange(type) },
@@ -351,12 +353,12 @@ fun GoogleMapPanelView(
         // AQI Map Legend Bar at Bottom-Left (above card)
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             shadowElevation = 3.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 12.dp, bottom = if (selectedStation != null) 300.dp else 12.dp)
+                .padding(start = 12.dp, bottom = if (selectedStation != null) 300.dp else 84.dp)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
@@ -389,7 +391,13 @@ private fun LegendIndicator(label: String, color: Color) {
  * Renders Google Maps Roadmap, Satellite Hybrid, Terrain, and OSM tiles directly,
  * with touch pan/zoom, dynamic air quality station pins, pulse animations, bridges, and GPS radar.
  */
-private fun generateSelfContainedGoogleMapHtml(): String {
+private fun generateSelfContainedGoogleMapHtml(isDarkTheme: Boolean): String {
+    val bgHex = if (isDarkTheme) "#0f172a" else "#f8fafc"
+    val badgeBg = if (isDarkTheme) "#0f172a" else "#ffffff"
+    val badgeText = if (isDarkTheme) "#ffffff" else "#0f172a"
+    val badgeShadow = if (isDarkTheme) "rgba(0,0,0,0.6)" else "rgba(0,0,0,0.18)"
+    val subText = if (isDarkTheme) "#94a3b8" else "#64748b"
+
     return """
 <!DOCTYPE html>
 <html>
@@ -398,7 +406,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: $bgHex; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
         #map-container {
             width: 100%;
@@ -406,7 +414,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
             position: absolute;
             top: 0; left: 0;
             overflow: hidden;
-            background: #0f172a;
+            background: $bgHex;
             touch-action: none;
             cursor: grab;
         }
@@ -454,30 +462,42 @@ private fun generateSelfContainedGoogleMapHtml(): String {
         }
         
         .station-marker:hover, .station-marker.selected {
-            transform: translate(-50%, -100%) scale(1.25);
+            transform: translate(-50%, -100%) scale(1.22);
             z-index: 500;
         }
         
         .marker-badge {
-            background: #0f172a;
-            color: #ffffff;
+            background: $badgeBg;
+            color: $badgeText;
             font-size: 11px;
             font-weight: 800;
-            padding: 2px 7px;
+            padding: 3px 8px;
             border-radius: 12px;
-            border: 2px solid var(--border-color, #22c55e);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.6);
+            border: 2px solid var(--border-color, #16a34a);
+            box-shadow: 0 3px 8px $badgeShadow;
             white-space: nowrap;
             letter-spacing: -0.2px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .marker-name {
+            font-size: 9px;
+            font-weight: 600;
+            color: $subText;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .marker-pin {
             width: 14px;
             height: 14px;
             border-radius: 50%;
-            background: var(--pin-color, #22c55e);
+            background: var(--pin-color, #16a34a);
             border: 2.5px solid #ffffff;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
             margin-top: -2px;
             position: relative;
         }
@@ -485,15 +505,15 @@ private fun generateSelfContainedGoogleMapHtml(): String {
         .marker-pin.pulse::after {
             content: '';
             position: absolute;
-            top: -6px; left: -6px; right: -6px; bottom: -6px;
+            top: -7px; left: -7px; right: -7px; bottom: -7px;
             border-radius: 50%;
-            border: 2px solid var(--pin-color, #22c55e);
-            animation: ripple 1.5s infinite;
+            border: 2.5px solid var(--pin-color, #16a34a);
+            animation: ripple 1.4s infinite;
         }
 
         @keyframes ripple {
-            0% { transform: scale(0.9); opacity: 0.9; }
-            100% { transform: scale(2.3); opacity: 0; }
+            0% { transform: scale(0.9); opacity: 0.95; }
+            100% { transform: scale(2.4); opacity: 0; }
         }
 
         .user-gps-marker {
@@ -523,7 +543,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
             right: 6px;
             font-size: 8px;
             color: #94a3b8;
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.7);
             padding: 2px 6px;
             border-radius: 4px;
             pointer-events: none;
@@ -639,17 +659,17 @@ private fun generateSelfContainedGoogleMapHtml(): String {
                     var pt = latLonToWorldPixels(st.lat, st.lon, zoom);
                     var sx = pt.x - viewLeft;
                     var sy = pt.y - viewTop;
-                    var radius = Math.min(100, Math.max(35, (st.api * 0.7) * (zoom / 11)));
+                    var radius = Math.min(110, Math.max(38, (st.api * 0.75) * (zoom / 11)));
 
                     var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     circle.setAttribute('cx', sx);
                     circle.setAttribute('cy', sy);
                     circle.setAttribute('r', radius);
                     circle.setAttribute('fill', st.color);
-                    circle.setAttribute('fill-opacity', '0.24');
+                    circle.setAttribute('fill-opacity', '0.25');
                     circle.setAttribute('stroke', st.color);
-                    circle.setAttribute('stroke-opacity', '0.35');
-                    circle.setAttribute('stroke-width', '1');
+                    circle.setAttribute('stroke-opacity', '0.4');
+                    circle.setAttribute('stroke-width', '1.5');
                     vectorsLayer.appendChild(circle);
                 });
             }
@@ -663,7 +683,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
             var b1Path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
             var b1PtsStr = b1Points.map(function(p) { return (p.x - viewLeft) + ',' + (p.y - viewTop); }).join(' ');
             b1Path.setAttribute('points', b1PtsStr);
-            b1Path.setAttribute('stroke', '#6366f1');
+            b1Path.setAttribute('stroke', '#4f46e5');
             b1Path.setAttribute('stroke-width', '3');
             b1Path.setAttribute('stroke-dasharray', '5,5');
             b1Path.setAttribute('fill', 'none');
@@ -678,7 +698,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
             var b2Path = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
             var b2PtsStr = b2Points.map(function(p) { return (p.x - viewLeft) + ',' + (p.y - viewTop); }).join(' ');
             b2Path.setAttribute('points', b2PtsStr);
-            b2Path.setAttribute('stroke', '#8b5cf6');
+            b2Path.setAttribute('stroke', '#7c3aed');
             b2Path.setAttribute('stroke-width', '3');
             b2Path.setAttribute('stroke-dasharray', '5,5');
             b2Path.setAttribute('fill', 'none');
@@ -697,7 +717,7 @@ private fun generateSelfContainedGoogleMapHtml(): String {
                 markersLayer.appendChild(userDiv);
             }
 
-            // Stations Markers
+            // Stations Markers (Showing all 11 stations clearly)
             stationsData.forEach(function(st) {
                 var pt = latLonToWorldPixels(st.lat, st.lon, zoom);
                 var sx = pt.x - viewLeft;
@@ -710,7 +730,10 @@ private fun generateSelfContainedGoogleMapHtml(): String {
 
                 var pulseClass = st.isSelected ? ' pulse' : '';
                 marker.innerHTML = 
-                    '<div class="marker-badge" style="--border-color: ' + st.color + ';">' + st.api + '</div>' +
+                    '<div class="marker-badge" style="--border-color: ' + st.color + ';">' +
+                        '<span>' + st.api + '</span>' +
+                        '<span class="marker-name">' + (st.shortName || st.name) + '</span>' +
+                    '</div>' +
                     '<div class="marker-pin' + pulseClass + '" style="--pin-color: ' + st.color + ';"></div>';
 
                 marker.addEventListener('click', function(e) {
