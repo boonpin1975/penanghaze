@@ -29,7 +29,7 @@ data class HazeUiState(
     val isSimulatedSpike: Boolean = false,
     val simulatedSpikeValue: Int? = null,
     val selectedNavTab: Int = 0,
-    val isDarkTheme: Boolean = true,
+    val isDarkTheme: Boolean = false,
     // Historical Data state
     val historyAnalytics: HistoricalAnalytics? = null,
     val selectedHistoryRange: DateRangeType = DateRangeType.LAST_30_DAYS,
