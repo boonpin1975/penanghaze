@@ -151,7 +151,7 @@ fun DashboardScreen(
                                 }
                             }
                             Text(
-                                text = "11 Penang stations, Street Map & atmospheric haze plumes",
+                                text = "11 Penang stations across Island & Mainland on Google Maps",
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

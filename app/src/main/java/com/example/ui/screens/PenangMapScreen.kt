@@ -61,9 +61,9 @@ fun PenangMapScreen(
 
     val currentGoogleMapType = remember(state.googleMapTypeCode) {
         when (state.googleMapTypeCode) {
-            "y" -> GoogleMapType.SATELLITE
+            "k" -> GoogleMapType.SATELLITE
             "p" -> GoogleMapType.TERRAIN
-            "osm" -> GoogleMapType.OSM
+            "h" -> GoogleMapType.HYBRID
             else -> GoogleMapType.ROADMAP
         }
     }
@@ -81,7 +81,7 @@ fun PenangMapScreen(
             .fillMaxSize()
             .testTag("penang_map_screen")
     ) {
-        // 1. Google Map Panel View (Primary Slippy Map Engine with Station Overlays)
+        // 1. OpenStreetMap Panel View with Station Overlays
         GoogleMapPanelView(
             stations = state.allStations,
             stationReadings = stationReadings,
@@ -91,7 +91,7 @@ fun PenangMapScreen(
             onViewStationHistory = onViewStationHistory,
             isHeatmapEnabled = state.isHeatmapEnabled,
             districtFilter = state.mapDistrictFilter,
-            mapType = GoogleMapType.ROADMAP,
+            mapType = currentGoogleMapType,
             onToggleHeatmap = onToggleHeatmap,
             userLatitude = state.reading?.station?.latitude ?: 5.4164,
             userLongitude = state.reading?.station?.longitude ?: 100.3327,
@@ -152,24 +152,6 @@ fun PenangMapScreen(
                                 selectedLabelColor = PureWhite
                             )
                         )
-                    }
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Heatmap toggle button
-                        IconButton(
-                            onClick = onToggleHeatmap,
-                            modifier = Modifier.size(34.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (state.isHeatmapEnabled) Icons.Default.Layers else Icons.Default.LayersClear,
-                                contentDescription = "Toggle Heatmap",
-                                tint = if (state.isHeatmapEnabled) GeoOrange else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
                     }
                 }
             }
