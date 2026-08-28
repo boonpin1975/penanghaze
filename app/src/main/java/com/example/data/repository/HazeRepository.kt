@@ -230,23 +230,40 @@ class HazeRepository(private val context: Context) {
         Pair(reading, hourlyForecasts)
     }
 
-    suspend fun getStationComparison(): List<Pair<PenangStation, Int>> = withContext(Dispatchers.IO) {
+    suspend fun getStationComparison(
+        activeReading: AirQualityReading? = null,
+        simulatedSpikeApi: Int? = null
+    ): List<Pair<PenangStation, Int>> = withContext(Dispatchers.IO) {
         val list = mutableListOf<Pair<PenangStation, Int>>()
+        
+        // Regional micro-climate weighting relative to Penang baseline
+        val stationWeights = mapOf(
+            "prai_industrial" to 1.18,
+            "seberang_jaya" to 1.14,
+            "butterworth" to 1.08,
+            "batu_kawan" to 1.06,
+            "nibong_tebal" to 1.02,
+            "bayan_lepas" to 1.04,
+            "george_town" to 1.00,
+            "usm_minden" to 0.95,
+            "tanjung_bungah" to 0.88,
+            "balik_pulau" to 0.78,
+            "penang_hill" to 0.65
+        )
+
+        val activeStationId = activeReading?.station?.id
+        val activeApi = simulatedSpikeApi ?: activeReading?.apiValue ?: 52
+        val activeWeight = stationWeights[activeStationId] ?: 1.0
+        val baseline = activeApi.toDouble() / activeWeight
+
         for (st in PenangStationsData.STATIONS) {
-            val base = when (st.id) {
-                "seberang_jaya" -> 74
-                "prai_industrial" -> 78
-                "bayan_lepas" -> 58
-                "george_town" -> 52
-                "balik_pulau" -> 39
-                "penang_hill" -> 32
-                "butterworth" -> 66
-                "batu_kawan" -> 64
-                "nibong_tebal" -> 56
-                "tanjung_bungah" -> 46
-                else -> 51
+            val api = if (st.id == activeStationId) {
+                activeApi
+            } else {
+                val weight = stationWeights[st.id] ?: 1.0
+                (baseline * weight).roundToInt().coerceIn(15, 500)
             }
-            list.add(Pair(st, base))
+            list.add(Pair(st, api))
         }
         list
     }

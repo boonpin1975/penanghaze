@@ -45,8 +45,23 @@ fun StationsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var expandedStationId by remember { mutableStateOf<String?>(null) }
 
-    val filteredList = remember(state.stationComparisons, selectedFilter, sortBy, searchQuery) {
-        var list = state.stationComparisons.filter { (station, _) ->
+    val resolvedStationList = remember(state.allStations, state.stationComparisons, state.reading) {
+        val readingsMap = mutableMapOf<String, Int>()
+        state.stationComparisons.forEach { (station, api) ->
+            readingsMap[station.id] = api
+        }
+        state.reading?.let { r ->
+            readingsMap[r.station.id] = r.apiValue
+        }
+
+        state.allStations.map { station ->
+            val api = readingsMap[station.id] ?: (if (station.id == state.reading?.station?.id) state.reading.apiValue else 52)
+            Pair(station, api)
+        }
+    }
+
+    val filteredList = remember(resolvedStationList, selectedFilter, sortBy, searchQuery) {
+        var list = resolvedStationList.filter { (station, _) ->
             val matchesDistrict = when (selectedFilter) {
                 "ISLAND" -> station.district.contains("Island", ignoreCase = true)
                 "MAINLAND" -> station.district.contains("Mainland", ignoreCase = true)
@@ -70,18 +85,18 @@ fun StationsScreen(
     }
 
     // Quick Stats
-    val avgApi = remember(state.stationComparisons) {
-        if (state.stationComparisons.isNotEmpty()) {
-            state.stationComparisons.map { it.second }.average().toInt()
-        } else 52
+    val avgApi = remember(resolvedStationList) {
+        if (resolvedStationList.isNotEmpty()) {
+            resolvedStationList.map { it.second }.average().toInt()
+        } else (state.reading?.apiValue ?: 52)
     }
 
-    val cleanestStation = remember(state.stationComparisons) {
-        state.stationComparisons.minByOrNull { it.second }
+    val cleanestStation = remember(resolvedStationList) {
+        resolvedStationList.minByOrNull { it.second }
     }
 
-    val highestStation = remember(state.stationComparisons) {
-        state.stationComparisons.maxByOrNull { it.second }
+    val highestStation = remember(resolvedStationList) {
+        resolvedStationList.maxByOrNull { it.second }
     }
 
     Column(
@@ -225,7 +240,7 @@ fun StationsScreen(
                         selected = selectedFilter == "ALL",
                         onClick = { selectedFilter = "ALL" },
                         shape = RoundedCornerShape(12.dp),
-                        label = { Text("All (${state.stationComparisons.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        label = { Text("All (${resolvedStationList.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = GeoOrange,
                             selectedLabelColor = PureWhite,

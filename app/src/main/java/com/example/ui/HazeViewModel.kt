@@ -84,7 +84,10 @@ class HazeViewModel(application: Application) : AndroidViewModel(application) {
                     stationName = reading.station.name
                 )
 
-                val comparisons = repository.getStationComparison()
+                val comparisons = repository.getStationComparison(
+                    activeReading = reading,
+                    simulatedSpikeApi = if (state.isSimulatedSpike) state.simulatedSpikeValue else null
+                )
 
                 val custom = state.userProfile.customThresholds
                 val banner = if (custom.isCustomEnabled && custom.shouldTriggerAlert(reading.apiValue)) {
