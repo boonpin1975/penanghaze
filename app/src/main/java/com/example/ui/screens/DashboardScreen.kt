@@ -118,8 +118,8 @@ fun DashboardScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.Map,
-                                    contentDescription = "Map",
+                                    imageVector = Icons.Default.FormatListBulleted,
+                                    contentDescription = "Stations List",
                                     tint = GeoOrange,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -131,7 +131,7 @@ fun DashboardScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Interactive Google Map",
+                                    text = "All 11 Penang Stations",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -151,7 +151,7 @@ fun DashboardScreen(
                                 }
                             }
                             Text(
-                                text = "11 Penang stations across Island & Mainland on Google Maps",
+                                text = "Browse all 11 stations with real-time API values across Penang",
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -167,7 +167,7 @@ fun DashboardScreen(
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                     ) {
-                        Text(text = "View Map", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "View List", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
                     }

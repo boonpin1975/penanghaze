@@ -1,6 +1,6 @@
 {
   "name": "Penang Haze Tracker",
-  "description": "Real-time Penang haze tracker detecting GPS and network points with customizable alert thresholds, 365-day historical trend charts, interactive monitoring station map, and automated health protocols.",
+  "description": "Real-time Penang haze tracker listing all 11 continuous monitoring stations and their live API readings, 365-day historical trend charts, customizable threshold alerts, and automated health advisories.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

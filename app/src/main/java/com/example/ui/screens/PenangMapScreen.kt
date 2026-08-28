@@ -81,30 +81,43 @@ fun PenangMapScreen(
             .fillMaxSize()
             .testTag("penang_map_screen")
     ) {
-        // 1. OpenStreetMap Panel View with Station Overlays
-        GoogleMapPanelView(
-            stations = state.allStations,
-            stationReadings = stationReadings,
-            selectedStation = state.selectedMapStation,
-            onSelectStation = onSelectStation,
-            onSetActiveStation = onSetActiveStation,
-            onViewStationHistory = onViewStationHistory,
-            isHeatmapEnabled = state.isHeatmapEnabled,
-            districtFilter = state.mapDistrictFilter,
-            mapType = currentGoogleMapType,
-            onToggleHeatmap = onToggleHeatmap,
-            userLatitude = state.reading?.station?.latitude ?: 5.4164,
-            userLongitude = state.reading?.station?.longitude ?: 100.3327,
-            isDarkTheme = state.isDarkTheme,
-            modifier = Modifier.fillMaxSize()
-        )
+        // 1. Map Render View: PenangInteractiveMapView (Atmospheric Heatmap & Station Names) or GoogleMapPanelView
+        if (state.isGoogleMapMode) {
+            GoogleMapPanelView(
+                stations = state.allStations,
+                stationReadings = stationReadings,
+                selectedStation = state.selectedMapStation,
+                onSelectStation = onSelectStation,
+                onSetActiveStation = onSetActiveStation,
+                onViewStationHistory = onViewStationHistory,
+                isHeatmapEnabled = state.isHeatmapEnabled,
+                districtFilter = state.mapDistrictFilter,
+                mapType = currentGoogleMapType,
+                onToggleHeatmap = onToggleHeatmap,
+                userLatitude = state.reading?.station?.latitude ?: 5.4164,
+                userLongitude = state.reading?.station?.longitude ?: 100.3327,
+                isDarkTheme = state.isDarkTheme,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            PenangInteractiveMapView(
+                stations = state.allStations,
+                stationReadings = stationReadings,
+                selectedStation = state.selectedMapStation,
+                onSelectStation = { onSelectStation(it) },
+                isHeatmapEnabled = state.isHeatmapEnabled,
+                districtFilter = state.mapDistrictFilter,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
-        // 2. Top Filter and Mode Bar
+        // 2. Top Filter and Mode Bar with Atmospheric Heatmap Toggle
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -116,7 +129,7 @@ fun PenangMapScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -152,6 +165,57 @@ fun PenangMapScreen(
                                 selectedLabelColor = PureWhite
                             )
                         )
+                    }
+
+                    // Map Mode & Heatmap Quick Controls
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Atmospheric Heatmap Toggle
+                        FilterChip(
+                            selected = state.isHeatmapEnabled,
+                            onClick = onToggleHeatmap,
+                            label = {
+                                Text(
+                                    if (state.isHeatmapEnabled) "Heatmap ON" else "Heatmap OFF",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Whatshot,
+                                    contentDescription = "Heatmap",
+                                    tint = if (state.isHeatmapEnabled) PureWhite else GeoOrange,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = GeoOrange,
+                                selectedLabelColor = PureWhite,
+                                containerColor = GeoOrange.copy(alpha = 0.12f),
+                                labelColor = GeoOrange
+                            )
+                        )
+
+                        // Mode switcher: Heatmap Vector vs Satellite
+                        IconButton(
+                            onClick = onToggleMapRenderer,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(
+                                    if (state.isGoogleMapMode) GeoOrange.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                                    CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (state.isGoogleMapMode) Icons.Default.Layers else Icons.Default.Map,
+                                contentDescription = "Toggle Map Type",
+                                tint = if (state.isGoogleMapMode) GeoOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }

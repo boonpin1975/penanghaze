@@ -239,7 +239,7 @@ fun PenangInteractiveMapView(
                 cap = StrokeCap.Round
             )
 
-            // 4. Heatmap dispersion overlays (if enabled)
+            // 4. Heatmap dispersion overlays (Atmospheric Heatmap)
             if (isHeatmapEnabled) {
                 filteredStations.forEach { station ->
                     val pos = project(station.latitude, station.longitude)
@@ -247,24 +247,42 @@ fun PenangInteractiveMapView(
                     val level = HazeLevel.fromApi(api)
                     val heatColor = level.color
 
-                    val heatRadius = (45.dp.toPx() * scale).coerceIn(30f, 140f)
+                    // Outer atmospheric diffusion plume
+                    val outerRadius = (65.dp.toPx() * scale).coerceIn(45f, 180f)
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                heatColor.copy(alpha = 0.38f),
-                                heatColor.copy(alpha = 0.15f),
+                                heatColor.copy(alpha = 0.40f),
+                                heatColor.copy(alpha = 0.22f),
+                                heatColor.copy(alpha = 0.08f),
                                 Color.Transparent
                             ),
                             center = pos,
-                            radius = heatRadius
+                            radius = outerRadius
                         ),
-                        radius = heatRadius,
+                        radius = outerRadius,
+                        center = pos
+                    )
+
+                    // Core concentrated haze center
+                    val coreRadius = (32.dp.toPx() * scale).coerceIn(20f, 90f)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                heatColor.copy(alpha = 0.55f),
+                                heatColor.copy(alpha = 0.25f),
+                                Color.Transparent
+                            ),
+                            center = pos,
+                            radius = coreRadius
+                        ),
+                        radius = coreRadius,
                         center = pos
                     )
                 }
             }
 
-            // 5. Draw Station Markers
+            // 5. Draw Station Markers with Name & API Badges
             filteredStations.forEach { station ->
                 val pos = project(station.latitude, station.longitude)
                 val isSelected = selectedStation?.id == station.id
@@ -276,93 +294,85 @@ fun PenangInteractiveMapView(
                 if (isSelected) {
                     drawCircle(
                         color = markerColor.copy(alpha = pulseAlpha),
-                        radius = (pulseRadius.dp.toPx() * scale).coerceIn(16f, 60f),
+                        radius = (pulseRadius.dp.toPx() * scale).coerceIn(18f, 70f),
                         center = pos,
-                        style = Stroke(width = 2.5.dp.toPx())
+                        style = Stroke(width = 3.dp.toPx())
                     )
                 }
 
-                // Outer pin base shadow
+                // Station pinpoint dot
                 drawCircle(
                     color = Color.Black.copy(alpha = 0.35f),
-                    radius = (11.dp.toPx() * scale.coerceIn(0.9f, 1.4f)),
-                    center = Offset(pos.x, pos.y + 2.dp.toPx())
+                    radius = (9.dp.toPx() * scale.coerceIn(0.85f, 1.3f)),
+                    center = Offset(pos.x, pos.y + 1.5.dp.toPx())
                 )
-
-                // White border
                 drawCircle(
                     color = PureWhite,
-                    radius = (10.dp.toPx() * scale.coerceIn(0.9f, 1.4f)),
+                    radius = (8.dp.toPx() * scale.coerceIn(0.85f, 1.3f)),
                     center = pos
                 )
-
-                // Color inner core
                 drawCircle(
                     color = markerColor,
-                    radius = (8.dp.toPx() * scale.coerceIn(0.9f, 1.4f)),
+                    radius = (6.dp.toPx() * scale.coerceIn(0.85f, 1.3f)),
                     center = pos
                 )
 
-                // API Value Badge on top
-                val labelText = "$api"
+                // Station Name & API Combined Pill Badge (Always Visible)
+                val shortStationName = station.name
+                    .replace("Penang", "")
+                    .replace("Station", "")
+                    .trim()
+                val badgeText = "$shortStationName • $api API"
+
                 val textLayout = textMeasurer.measure(
-                    text = AnnotatedString(labelText),
+                    text = AnnotatedString(badgeText),
                     style = TextStyle(
-                        fontSize = (10 * scale.coerceIn(0.85f, 1.3f)).sp,
-                        fontWeight = FontWeight.Black,
-                        color = PureWhite
+                        fontSize = (10 * scale.coerceIn(0.85f, 1.25f)).sp,
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                        color = if (isDark) PureWhite else Color(0xFF0F172A)
                     )
                 )
 
-                val badgeWidth = (textLayout.size.width + 16.dp.toPx())
-                val badgeHeight = (textLayout.size.height + 6.dp.toPx())
+                val paddingH = 8.dp.toPx() * scale.coerceIn(0.85f, 1.2f)
+                val paddingV = 4.dp.toPx() * scale.coerceIn(0.85f, 1.2f)
+                val badgeWidth = textLayout.size.width + paddingH * 2
+                val badgeHeight = textLayout.size.height + paddingV * 2
+
                 val badgeTopLeft = Offset(
                     x = pos.x - badgeWidth / 2,
-                    y = pos.y - (18.dp.toPx() * scale.coerceIn(0.9f, 1.4f)) - badgeHeight
+                    y = pos.y - (14.dp.toPx() * scale.coerceIn(0.85f, 1.3f)) - badgeHeight
                 )
 
-                // Badge Container
+                // Badge Background Shadow & Fill
                 drawRoundRect(
-                    color = if (isDark) Color(0xFF111315) else Color(0xFF22262B),
-                    topLeft = badgeTopLeft,
+                    color = Color.Black.copy(alpha = 0.25f),
+                    topLeft = Offset(badgeTopLeft.x, badgeTopLeft.y + 1.5.dp.toPx()),
                     size = Size(badgeWidth, badgeHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f)
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
                 )
                 drawRoundRect(
-                    color = markerColor,
+                    color = if (isDark) Color(0xFF1E293B) else PureWhite,
                     topLeft = badgeTopLeft,
                     size = Size(badgeWidth, badgeHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f),
-                    style = Stroke(width = 1.5.dp.toPx())
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
+                )
+                // Border colored with haze severity
+                drawRoundRect(
+                    color = if (isSelected) GeoOrange else markerColor,
+                    topLeft = badgeTopLeft,
+                    size = Size(badgeWidth, badgeHeight),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f),
+                    style = Stroke(width = if (isSelected) 2.5.dp.toPx() else 1.8.dp.toPx())
                 )
 
+                // Draw Text
                 drawText(
                     textLayoutResult = textLayout,
                     topLeft = Offset(
-                        x = badgeTopLeft.x + (badgeWidth - textLayout.size.width) / 2,
-                        y = badgeTopLeft.y + (badgeHeight - textLayout.size.height) / 2
+                        x = badgeTopLeft.x + paddingH,
+                        y = badgeTopLeft.y + paddingV
                     )
                 )
-
-                // Station name text below marker if zoomed in
-                if (scale >= 1.2f || isSelected) {
-                    val nameText = station.name.substringBefore("(")
-                    val nameLayout = textMeasurer.measure(
-                        text = AnnotatedString(nameText),
-                        style = TextStyle(
-                            fontSize = (9 * scale.coerceIn(0.85f, 1.2f)).sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isDark) PureWhite else Color(0xFF111827)
-                        )
-                    )
-                    drawText(
-                        textLayoutResult = nameLayout,
-                        topLeft = Offset(
-                            x = pos.x - nameLayout.size.width / 2,
-                            y = pos.y + (12.dp.toPx() * scale.coerceIn(0.9f, 1.4f))
-                        )
-                    )
-                }
             }
         }
 
